@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIELD PROBE // Console</title>
+<style>
+  :root{
+    --bg: #0a0d0a;
+    --panel: #10140f;
+    --line: #263021;
+    --phosphor: #8fff6b;
+    --phosphor-dim: #4a7a3a;
+    --amber: #ffb454;
+    --red: #ff5c5c;
+    --ink: #d8f0cf;
+    --mono: 'Courier New', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font-family: var(--mono);
+    height:100%;
+  }
+  body{
+    background-image:
+      radial-gradient(ellipse at top, rgba(143,255,107,0.05), transparent 60%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 2px);
+  }
+  .frame{ max-width: 980px; margin: 0 auto; padding: 18px 16px 60px; }
+  header.top{
+    display:flex; justify-content:space-between; align-items:baseline;
+    border-bottom: 1px solid var(--line); padding-bottom:10px; margin-bottom:14px;
+  }
+  header.top h1{
+    font-size:15px; letter-spacing:3px; margin:0; color:var(--phosphor); font-weight:700;
+  }
+  header.top .sub{ font-size:10px; color:var(--phosphor-dim); letter-spacing:2px;}
+  .tabs{ display:flex; gap:2px; margin-bottom:14px; }
+  .tab{
+    flex:1; text-align:center; padding:9px 6px; background:var(--panel);
+    border:1px solid var(--line); color:var(--phosphor-dim);
+    cursor:pointer; font-size:11px; letter-spacing:2px; user-select:none;
+  }
+  .tab.active{ color:var(--phosphor); border-color:var(--phosphor-dim); background:#141c10; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .grid2{ display:grid; grid-template-columns: 1.3fr 1fr; gap:14px; }
+  @media (max-width:760px){ .grid2{grid-template-columns:1fr;} }
+
+  .box{ border:1px solid var(--line); background:var(--panel); padding:12px; }
+  .box h2{
+    font-size:10px; letter-spacing:2px; color:var(--phosphor-dim); margin:0 0 10px;
+    border-bottom:1px dashed var(--line); padding-bottom:6px;
+  }
+
+  canvas{ display:block; width:100%; background:#050805; }
+  #hud{ height: 320px; border:1px solid var(--line); }
+
+  .viewbtns{ display:flex; gap:6px; margin-top:8px; }
+  .btn{
+    background:#141c10; border:1px solid var(--line); color:var(--ink);
+    padding:6px 10px; font-family:var(--mono); font-size:10px; letter-spacing:1px;
+    cursor:pointer; flex:1;
+  }
+  .btn:hover{ border-color:var(--phosphor-dim); }
+  .btn.on{ color:var(--bg); background:var(--phosphor); border-color:var(--phosphor);}
+  .btn.warn{ color:var(--amber); }
+  .btn.warn.on{ background:var(--amber); color:#221600; border-color:var(--amber); }
+  .btn.danger.on{ background:var(--red); color:#2b0000; border-color:var(--red);}
+
+  .telemetry{ display:grid; grid-template-columns: 1fr 1fr; gap:8px 14px; font-size:12px; }
+  .telemetry .row{ display:flex; justify-content:space-between; border-bottom:1px dotted var(--line); padding-bottom:3px;}
+  .telemetry .k{ color:var(--phosphor-dim); }
+  .telemetry .v{ color:var(--phosphor); }
+
+  .controls-wrap{ display:flex; gap:16px; align-items:center; margin-top:12px; }
+  #stick-base{
+    width:120px; height:120px; border-radius:50%; border:1px solid var(--line);
+    background: radial-gradient(circle, #10160d 0%, #0a0d0a 100%);
+    position:relative; touch-action:none; flex:none;
+  }
+  #stick-knob{
+    width:38px; height:38px; border-radius:50%; background:var(--phosphor);
+    position:absolute; left:41px; top:41px; box-shadow:0 0 12px rgba(143,255,107,0.6);
+    cursor:grab;
+  }
+  .throttle-wrap{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .throttle-wrap label{ font-size:9px; color:var(--phosphor-dim); letter-spacing:1px; }
+  #throttle{
+    writing-mode: vertical-lr; direction: rtl; width:26px; height:110px; accent-color: var(--phosphor);
+  }
+  .stick-label{ font-size:9px; color:var(--phosphor-dim); text-align:center; margin-top:4px; letter-spacing:1px;}
+
+  .modebar{ display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+
+  .log-actions{ display:flex; gap:6px; margin-top:10px; }
+  #logtable{ width:100%; font-size:10px; border-collapse:collapse; margin-top:8px; max-height:140px; overflow:auto; display:block;}
+  #logtable td{ padding:2px 4px; border-bottom:1px dotted var(--line); color:var(--phosphor-dim);}
+
+  p.note{ font-size:11px; color:var(--phosphor-dim); line-height:1.6; margin:0 0 12px;}
+  p.note b{ color:var(--amber); }
+  .fileinput{
+    width:100%; background:#141c10; border:1px solid var(--line); color:var(--ink);
+    padding:8px; font-family:var(--mono); font-size:11px; margin-bottom:10px;
+  }
+  .status{ font-size:11px; color:var(--phosphor); min-height:16px; margin-top:8px; white-space:pre-wrap; }
+  .status.err{ color:var(--red); }
+  progress{ width:100%; height:8px; accent-color: var(--phosphor); margin-top:6px; }
+  a.dl{ color:var(--amber); text-decoration:underline; }
+  video.hidden-video{ display:none; }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <header class="top">
+    <h1>FIELD PROBE</h1>
+    <div class="sub">GROUND CONTROL CONSOLE</div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="cockpit">COCKPIT</div>
+    <div class="tab" data-tab="capsule">DATA CAPSULE</div>
+  </div>
+
+  <!-- ===================== COCKPIT TAB ===================== -->
+  <div class="panel active" id="panel-cockpit">
+    <div class="grid2">
+      <div class="box">
+        <h2>VIEWPORT</h2>
+        <canvas id="hud" width="640" height="320"></canvas>
+        <div class="viewbtns">
+          <div class="btn on" data-view="cockpit">HUD</div>
+          <div class="btn" data-view="chase">CHASE</div>
+          <div class="btn" data-view="top">TOP-DOWN</div>
+        </div>
+
+        <div class="controls-wrap">
+          <div>
+            <div id="stick-base"><div id="stick-knob"></div></div>
+            <div class="stick-label">PITCH / ROLL</div>
+          </div>
+          <div class="throttle-wrap">
+            <label>ALT</label>
+            <input type="range" id="throttle" min="-1" max="1" step="0.01" value="0">
+            <label id="throttle-val">0.00</label>
+          </div>
+        </div>
+
+        <div class="modebar">
+          <div class="btn on" data-mode="Manual">MANUAL</div>
+          <div class="btn warn" data-mode="Auto">AUTO-LOITER</div>
+          <div class="btn danger" data-mode="Stealth">STEALTH</div>
+        </div>
+      </div>
+
+      <div class="box">
+        <h2>TELEMETRY</h2>
+        <div class="telemetry">
+          <div class="row"><span class="k">X</span><span class="v" id="t-x">0.0</span></div>
+          <div class="row"><span class="k">Y</span><span class="v" id="t-y">0.0</span></div>
+          <div class="row"><span class="k">ALT (m)</span><span class="v" id="t-alt">0.0</span></div>
+          <div class="row"><span class="k">HDG (°)</span><span class="v" id="t-hdg">0.0</span></div>
+          <div class="row"><span class="k">SPD (m/s)</span><span class="v" id="t-spd">0.0</span></div>
+          <div class="row"><span class="k">BATT (%)</span><span class="v" id="t-batt">100.0</span></div>
+          <div class="row"><span class="k">MODE</span><span class="v" id="t-mode">Manual</span></div>
+          <div class="row"><span class="k">T (s)</span><span class="v" id="t-time">0.0</span></div>
+        </div>
+
+        <h2 style="margin-top:14px;">FLIGHT LOG</h2>
+        <div class="log-actions">
+          <div class="btn" id="log-toggle">▶ START LOG</div>
+          <div class="btn" id="log-clear">CLEAR</div>
+          <div class="btn" id="log-download">⬇ CSV</div>
+        </div>
+        <div style="font-size:10px;color:var(--phosphor-dim);margin-top:6px;" id="log-count">0 samples</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== DATA CAPSULE TAB ===================== -->
+  <div class="panel" id="panel-capsule">
+    <div class="box">
+      <h2>WHAT THIS DOES</h2>
+      <p class="note">
+        This encodes a file's raw bytes as black/white block patterns drawn frame-by-frame onto
+        a canvas, then records that canvas as a video (<b>.webm</b>, via the browser's MediaRecorder — 
+        browsers can't natively mux MP4 client-side). Each frame carries a sequence number so
+        the decoder can reject duplicates. <b>This is a data container, not an executable one</b> —
+        playing the file normally just shows flashing black/white blocks. It's a real way to
+        package a small file (a flight plan, a waypoint list, a config) as a single video artifact
+        for archival or transfer; it is not a way to run code by playing a video.
+      </p>
+    </div>
+
+    <div class="grid2">
+      <div class="box">
+        <h2>ENCODE — FILE → CAPSULE</h2>
+        <input type="file" id="enc-file" class="fileinput">
+        <div class="btn on" id="enc-run" style="width:100%;text-align:center;">⚙ BURN CAPSULE</div>
+        <progress id="enc-progress" value="0" max="100" style="display:none;"></progress>
+        <div class="status" id="enc-status"></div>
+        <canvas id="enc-canvas" width="480" height="270" style="margin-top:10px; display:none;"></canvas>
+      </div>
+
+      <div class="box">
+        <h2>DECODE — CAPSULE → FILE</h2>
+        <input type="file" id="dec-file" class="fileinput" accept="video/webm">
+        <div class="btn on" id="dec-run" style="width:100%;text-align:center;">⚙ EXTRACT FILE</div>
+        <progress id="dec-progress" value="0" max="100" style="display:none;"></progress>
+        <div class="status" id="dec-status"></div>
+        <video class="hidden-video" id="dec-video" muted playsinline></video>
+        <canvas id="dec-canvas" width="480" height="270" style="display:none;"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   TAB SWITCHING
+============================================================ */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
+  });
+});
+
+/* ============================================================
+   DRONE SIMULATION STATE
+============================================================ */
+const drone = { x:0, y:0, alt:0, heading:0, speed:0, battery:100, mode:'Manual', t:0 };
+let view = 'cockpit';
+let trail = [];
+const MAX_TRAIL = 400;
+
+let stickX = 0, stickY = 0; // -1..1
+let throttle = 0;
+let dragging = false;
+
+const stickBase = document.getElementById('stick-base');
+const stickKnob = document.getElementById('stick-knob');
+const R = 41; // travel radius
+
+function setKnob(dx, dy){
+  stickKnob.style.left = (41+dx) + 'px';
+  stickKnob.style.top  = (41+dy) + 'px';
+}
+function stickPointer(e){
+  const rect = stickBase.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  const px = (e.touches ? e.touches[0].clientX : e.clientX) - cx;
+  const py = (e.touches ? e.touches[0].clientY : e.clientY) - cy;
+  const dist = Math.min(Math.hypot(px,py), R);
+  const ang = Math.atan2(py,px);
+  const dx = Math.cos(ang)*dist, dy = Math.sin(ang)*dist;
+  setKnob(dx,dy);
+  stickX = dx/R; stickY = -dy/R;
+}
+stickBase.addEventListener('pointerdown', e=>{ dragging=true; stickPointer(e); });
+window.addEventListener('pointermove', e=>{ if(dragging) stickPointer(e); });
+window.addEventListener('pointerup', ()=>{
+  dragging=false; setKnob(0,0); stickX=0; stickY=0;
+});
+
+const throttleEl = document.getElementById('throttle');
+throttleEl.addEventListener('input', ()=>{
+  throttle = parseFloat(throttleEl.value);
+  document.getElementById('throttle-val').textContent = throttle.toFixed(2);
+});
+
+document.querySelectorAll('[data-view]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-view]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    view = b.dataset.view;
+  });
+});
+document.querySelectorAll('[data-mode]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-mode]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    drone.mode = b.dataset.mode;
+  });
+});
+
+/* ============================================================
+   SIM LOOP
+============================================================ */
+const MAX_SPEED = 12, TURN_RATE = 70, CLIMB_RATE = 4;
+let lastT = performance.now();
+
+function stepSim(dt){
+  drone.t += dt;
+
+  if(drone.mode === 'Auto'){
+    // simple autonomous loiter: constant turn, constant forward speed
+    drone.heading = (drone.heading + 25*dt) % 360;
+    drone.speed = MAX_SPEED*0.4;
+  } else {
+    drone.heading = (drone.heading + stickX*TURN_RATE*dt + 360) % 360;
+    drone.speed = -stickY*MAX_SPEED; // forward = up on stick
+  }
+
+  const rad = drone.heading*Math.PI/180;
+  drone.x += Math.sin(rad)*drone.speed*dt;
+  drone.y -= Math.cos(rad)*drone.speed*dt;
+  drone.alt = Math.max(0, drone.alt + throttle*CLIMB_RATE*dt);
+
+  const drain = 0.15 + Math.abs(drone.speed)/MAX_SPEED*0.35 + Math.abs(throttle)*0.2;
+  drone.battery = Math.max(0, drone.battery - drain*dt);
+
+  trail.push({x:drone.x, y:drone.y});
+  if(trail.length > MAX_TRAIL) trail.shift();
+}
+
+/* ============================================================
+   RENDERING
+============================================================ */
+const hud = document.getElementById('hud');
+const ctx = hud.getContext('2d');
+
+function drawCockpit(){
+  const W = hud.width, H = hud.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(W/2, H/2);
+
+  // artificial horizon, rolls with stickX, pitches with stickY
+  const roll = -stickX * 0.35;
+  const pitchOffset = stickY * 60;
+  ctx.save();
+  ctx.rotate(roll);
+  ctx.translate(0, pitchOffset);
+  ctx.fillStyle = '#0d2a10';
+  ctx.fillRect(-W, 0, W*2, H*2);
+  ctx.fillStyle = '#1a1508';
+  ctx.fillRect(-W, -H*2, W*2, H*2);
+  ctx.strokeStyle = 'var(--phosphor)';
+  ctx.strokeStyle = '#8fff6b';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-W,0); ctx.lineTo(W,0); ctx.stroke();
+  for(let d=-30; d<=30; d+=10){
+    if(d===0) continue;
+    const y = -d*3;
+    ctx.beginPath();
+    ctx.moveTo(-30, y); ctx.lineTo(30, y); ctx.stroke();
+    ctx.fillStyle = '#8fff6b';
+    ctx.font = '10px monospace';
+    ctx.fillText(d>0?`+${d}`:`${d}`, -60, y+3);
+  }
+  ctx.restore();
+
+  // crosshair
+  ctx.strokeStyle = '#ffb454';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-20,0); ctx.lineTo(-6,0); ctx.moveTo(6,0); ctx.lineTo(20,0);
+  ctx.moveTo(0,-6); ctx.lineTo(0,-14); ctx.stroke();
+
+  // heading tape
+  ctx.restore();
+  ctx.fillStyle = '#050805';
+  ctx.fillRect(0,0,W,26);
+  ctx.strokeStyle = '#263021';
+  ctx.strokeRect(0,0,W,26);
+  ctx.fillStyle = '#8fff6b';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  for(let i=-8;i<=8;i++){
+    const hdg = (Math.round(drone.heading/10)*10 + i*10 + 360)%360;
+    const x = W/2 + i*40 - ((drone.heading%10)*4);
+    if(x>0 && x<W) ctx.fillText(hdg.toString().padStart(3,'0'), x, 17);
+  }
+  ctx.textAlign = 'left';
+
+  // alt / speed readouts corners
+  ctx.fillStyle = '#0a0d0a';
+  ctx.fillRect(0,H-40,120,40);
+  ctx.fillRect(W-120,H-40,120,40);
+  ctx.fillStyle = '#ffb454';
+  ctx.font = '13px monospace';
+  ctx.fillText('ALT ' + drone.alt.toFixed(1) + 'm', 10, H-16);
+  ctx.fillText('SPD ' + drone.speed.toFixed(1) + 'm/s', W-115, H-16);
+
+  ctx.strokeStyle = '#263021';
+  ctx.strokeRect(0,0,W,H);
+}
+
+function drawTopdown(scale){
+  const W = hud.width, H = hud.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#050805';
+  ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = '#182015';
+  for(let gx=0; gx<W; gx+=30){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+  for(let gy=0; gy<H; gy+=30){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+  ctx.save();
+  ctx.translate(W/2, H/2);
+
+  // trail
+  ctx.strokeStyle = '#4a7a3a';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  trail.forEach((p,i)=>{
+    const px = (p.x - drone.x)*scale, py = (p.y - drone.y)*scale;
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  });
+  ctx.stroke();
+
+  // drone marker at center, pointing heading
+  ctx.rotate(drone.heading*Math.PI/180);
+  ctx.fillStyle = '#8fff6b';
+  ctx.beginPath();
+  ctx.moveTo(0,-10); ctx.lineTo(7,8); ctx.lineTo(0,4); ctx.lineTo(-7,8);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = '#263021';
+  ctx.strokeRect(0,0,W,H);
+}
+
+function render(){
+  if(view === 'cockpit') drawCockpit();
+  else if(view === 'chase') drawTopdown(6);
+  else drawTopdown(2);
+}
+
+/* ============================================================
+   TELEMETRY DISPLAY + LOGGING
+============================================================ */
+let logging = false;
+let log = [];
+const logToggle = document.getElementById('log-toggle');
+logToggle.addEventListener('click', ()=>{
+  logging = !logging;
+  logToggle.textContent = logging ? '■ STOP LOG' : '▶ START LOG';
+  logToggle.classList.toggle('on', logging);
+});
+document.getElementById('log-clear').addEventListener('click', ()=>{
+  log = []; document.getElementById('log-count').textContent = '0 samples';
+});
+document.getElementById('log-download').addEventListener('click', ()=>{
+  if(log.length===0) return;
+  const header = 't,x,y,alt,heading,speed,battery,mode\n';
+  const rows = log.map(r => [r.t.toFixed(2),r.x.toFixed(2),r.y.toFixed(2),r.alt.toFixed(2),
+    r.heading.toFixed(1),r.speed.toFixed(2),r.battery.toFixed(1),r.mode].join(',')).join('\n');
+  const blob = new Blob([header+rows], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'flight_telemetry_log.csv';
+  a.click();
+});
+
+let lastLogT = 0;
+function updateTelemetryDisplay(){
+  document.getElementById('t-x').textContent = drone.x.toFixed(1);
+  document.getElementById('t-y').textContent = drone.y.toFixed(1);
+  document.getElementById('t-alt').textContent = drone.alt.toFixed(1);
+  document.getElementById('t-hdg').textContent = drone.heading.toFixed(1);
+  document.getElementById('t-spd').textContent = drone.speed.toFixed(1);
+  document.getElementById('t-batt').textContent = drone.battery.toFixed(1);
+  document.getElementById('t-mode').textContent = drone.mode;
+  document.getElementById('t-time').textContent = drone.t.toFixed(1);
+}
+
+function mainLoop(now){
+  const dt = Math.min(0.05, (now-lastT)/1000);
+  lastT = now;
+  stepSim(dt);
+  render();
+  updateTelemetryDisplay();
+
+  if(logging && drone.t - lastLogT > 0.5){
+    lastLogT = drone.t;
+    log.push({t:drone.t,x:drone.x,y:drone.y,alt:drone.alt,heading:drone.heading,speed:drone.speed,battery:drone.battery,mode:drone.mode});
+    document.getElementById('log-count').textContent = log.length + ' samples';
+  }
+  requestAnimationFrame(mainLoop);
+}
+requestAnimationFrame(mainLoop);
+
+/* ============================================================
+   DATA CAPSULE — ENCODE (file bytes -> block-pattern video)
+   Frame layout:
+     grid of BLOCK x BLOCK pixel squares, each square = 1 bit (white=1/black=0)
+     first 32 bits of frame 0 = total payload length (uint32, big-endian)
+     first 16 bits of EVERY frame = frame sequence number (for de-dup on decode)
+     remaining bits = payload chunk for that frame
+============================================================ */
+const BLOCK = 14;               // pixel size of each bit-cell
+const encCanvas = document.getElementById('enc-canvas');
+const encCtx = encCanvas.getContext('2d');
+const COLS = Math.floor(encCanvas.width / BLOCK);
+const ROWS = Math.floor(encCanvas.height / BLOCK);
+const BITS_PER_FRAME = COLS*ROWS;
+const SEQ_BITS = 16;
+const LEN_BITS = 32; // only present in frame 0
+
+function bytesToBits(bytes){
+  const bits = new Uint8Array(bytes.length*8);
+  for(let i=0;i<bytes.length;i++){
+    for(let b=0;b<8;b++){
+      bits[i*8+b] = (bytes[i] >> (7-b)) & 1;
+    }
+  }
+  return bits;
+}
+function uint32ToBits(n){
+  const bits = new Uint8Array(32);
+  for(let b=0;b<32;b++) bits[b] = (n >> (31-b)) & 1;
+  return bits;
+}
+function uint16ToBits(n){
+  const bits = new Uint8Array(16);
+  for(let b=0;b<16;b++) bits[b] = (n >> (15-b)) & 1;
+  return bits;
+}
+function bitsToUint(bits){
+  let n=0;
+  for(let i=0;i<bits.length;i++) n = (n*2) + bits[i];
+  return n>>>0;
+}
+
+function drawBitFrame(bitArray){
+  encCtx.fillStyle = '#000';
+  encCtx.fillRect(0,0,encCanvas.width, encCanvas.height);
+  encCtx.fillStyle = '#fff';
+  for(let i=0;i<bitArray.length;i++){
+    if(bitArray[i]===1){
+      const col = i % COLS, row = Math.floor(i/COLS);
+      encCtx.fillRect(col*BLOCK, row*BLOCK, BLOCK-2, BLOCK-2);
+    }
+  }
+}
+
+document.getElementById('enc-run').addEventListener('click', async ()=>{
+  const fileInput = document.getElementById('enc-file');
+  const statusEl = document.getElementById('enc-status');
+  const progEl = document.getElementById('enc-progress');
+  statusEl.className='status'; statusEl.textContent='';
+
+  if(!fileInput.files.length){ statusEl.textContent='Select a file first.'; statusEl.className='status err'; return; }
+  const file = fileInput.files[0];
+  if(file.size > 300000){
+    statusEl.textContent = 'Note: large file — this encoding is meant for small config/telemetry files. Proceeding, but it will produce a long video.';
+  }
+
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const payloadBits = bytesToBits(buf);
+  const lenBits = uint32ToBits(buf.length);
+
+  const chunkCapacityFrame0 = BITS_PER_FRAME - SEQ_BITS - LEN_BITS;
+  const chunkCapacityOther  = BITS_PER_FRAME - SEQ_BITS;
+
+  const frames = [];
+  let offset = 0;
+  let seq = 0;
+  while(offset < payloadBits.length || frames.length===0){
+    const cap = seq===0 ? chunkCapacityFrame0 : chunkCapacityOther;
+    const chunk = payloadBits.slice(offset, offset+cap);
+    offset += cap;
+    const seqBits = uint16ToBits(seq);
+    let frameBits;
+    if(seq===0){
+      frameBits = new Uint8Array(BITS_PER_FRAME);
+      frameBits.set(seqBits,0);
+      frameBits.set(lenBits,SEQ_BITS);
+      frameBits.set(chunk,SEQ_BITS+LEN_BITS);
+    } else {
+      frameBits = new Uint8Array(BITS_PER_FRAME);
+      frameBits.set(seqBits,0);
+      frameBits.set(chunk,SEQ_BITS);
+    }
+    frames.push(frameBits);
+    seq++;
+    if(offset>=payloadBits.length) break;
+  }
+
+  statusEl.textContent = `Encoding ${buf.length} bytes into ${frames.length} frames...`;
+  encCanvas.style.display='block';
+  progEl.style.display='block'; progEl.max = frames.length;
+
+  // Record via MediaRecorder while we manually paint each frame and request captures
+  const stream = encCanvas.captureStream(0); // manual frame mode
+  const track = stream.getVideoTracks()[0];
+  const chunksOut = [];
+  const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+  const recorder = new MediaRecorder(stream, {mimeType});
+  recorder.ondataavailable = e => { if(e.data.size>0) chunksOut.push(e.data); };
+
+  const done = new Promise(resolve => { recorder.onstop = resolve; });
+  recorder.start();
+
+  for(let i=0;i<frames.length;i++){
+    drawBitFrame(frames[i]);
+    track.requestFrame();
+    progEl.value = i+1;
+    await new Promise(r=>setTimeout(r, 90)); // hold each frame long enough to be captured distinctly
+  }
+  // repeat last frame briefly so recorder flushes it
+  await new Promise(r=>setTimeout(r, 200));
+  recorder.stop();
+  await done;
+
+  const blob = new Blob(chunksOut, {type:'video/webm'});
+  const url = URL.createObjectURL(blob);
+  const sizeKB = (blob.size/1024).toFixed(1);
+  statusEl.innerHTML = `Done. ${frames.length} frames, capsule size ${sizeKB} KB.<br><a class="dl" href="${url}" download="${file.name}.capsule.webm">Download capsule (.webm)</a>`;
+});
+
+/* ============================================================
+   DATA CAPSULE — DECODE (block-pattern video -> file bytes)
+============================================================ */
+document.getElementById('dec-run').addEventListener('click', async ()=>{
+  const fileInput = document.getElementById('dec-file');
+  const statusEl = document.getElementById('dec-status');
+  const progEl = document.getElementById('dec-progress');
+  statusEl.className='status'; statusEl.textContent='';
+
+  if(!fileInput.files.length){ statusEl.textContent='Select a .capsule.webm file first.'; statusEl.className='status err'; return; }
+  const file = fileInput.files[0];
+  const video = document.getElementById('dec-video');
+  const dcanvas = document.getElementById('dec-canvas');
+  const dctx = dcanvas.getContext('2d');
+  video.src = URL.createObjectURL(file);
+
+  await new Promise(res => { video.onloadedmetadata = res; });
+  dcanvas.width = video.videoWidth || encCanvas.width;
+  dcanvas.height = video.videoHeight || encCanvas.height;
+  const cols = Math.floor(dcanvas.width/BLOCK), rows = Math.floor(dcanvas.height/BLOCK);
+  const bitsPerFrame = cols*rows;
+
+  statusEl.textContent = 'Scanning frames...';
+  progEl.style.display='block'; progEl.value=0; progEl.max = Math.max(1, Math.floor((video.duration||1)*11));
+
+  const seenSeq = new Set();
+  let totalLen = null;
+  const collected = new Map(); // seq -> bit array (payload only)
+
+  function readFrameBits(){
+    dctx.drawImage(video, 0,0, dcanvas.width, dcanvas.height);
+    const bits = new Uint8Array(bitsPerFrame);
+    for(let i=0;i<bitsPerFrame;i++){
+      const col = i%cols, row = Math.floor(i/cols);
+      const px = dctx.getImageData(col*BLOCK+2, row*BLOCK+2, 1,1).data;
+      const lum = (px[0]+px[1]+px[2])/3;
+      bits[i] = lum > 128 ? 1 : 0;
+    }
+    return bits;
+  }
+
+  video.pause();
+  const step = 1/11; // matches ~90ms hold used at encode time
+  let tcur = 0;
+  let frameCount = 0;
+  while(tcur < video.duration){
+    video.currentTime = tcur;
+    await new Promise(res => { video.onseeked = res; });
+    const bits = readFrameBits();
+    const seqBits = bits.slice(0,SEQ_BITS);
+    const seq = bitsToUint(seqBits);
+
+    if(!seenSeq.has(seq)){
+      seenSeq.add(seq);
+      if(seq===0){
+        const lenBits = bits.slice(SEQ_BITS, SEQ_BITS+LEN_BITS);
+        totalLen = bitsToUint(lenBits);
+        collected.set(0, bits.slice(SEQ_BITS+LEN_BITS));
+      } else {
+        collected.set(seq, bits.slice(SEQ_BITS));
+      }
+    }
+    frameCount++;
+    progEl.value = frameCount;
+    tcur += step;
+  }
+
+  if(totalLen===null){
+    statusEl.textContent = 'Could not find header frame (seq 0). Try a slower scan step or re-encode.';
+    statusEl.className='status err';
+    return;
+  }
+
+  const orderedSeqs = Array.from(collected.keys()).sort((a,b)=>a-b);
+  let allBits = [];
+  orderedSeqs.forEach(s => { allBits = allBits.concat(Array.from(collected.get(s))); });
+
+  const neededBits = totalLen*8;
+  allBits = allBits.slice(0, neededBits);
+
+  const outBytes = new Uint8Array(totalLen);
+  for(let i=0;i<totalLen;i++){
+    let v=0;
+    for(let b=0;b<8;b++) v = (v<<1) | (allBits[i*8+b]||0);
+    outBytes[i]=v;
+  }
+
+  const blob = new Blob([outBytes]);
+  const url = URL.createObjectURL(blob);
+  statusEl.innerHTML = `Recovered ${totalLen} bytes from ${seenSeq.size} unique frames.<br><a class="dl" href="${url}" download="recovered_file.bin">Download recovered file</a>`;
+});
+</script>
+</body>
+</html>
